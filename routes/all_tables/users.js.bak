@@ -1,0 +1,2454 @@
+const express = require('express');
+const router = express.Router();
+const uuid  = require('uuid');
+
+const mysql = require('mysql');
+const xlsx = require('xlsx');
+const path = require('path');
+var CryptoJS = require("crypto-js");
+var axios = require('axios');
+var FormData = require('form-data');
+var fs = require('fs');
+const Buffer = require('buffer').Buffer ;
+var http = require('http');
+var https = require('https');
+//var fetch = require('node-fetch');
+var XMLHttpRequest = require('xhr2');
+const fetch = require('node-fetch');
+var FileReader = require('filereader');
+
+//create a connection
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'spin_game_db'
+});
+
+//connect
+db.connect((err) => {
+    if(err) {
+        throw(err);
+    }
+    console.log('mysql connected');
+});
+//create db
+// router.get('/createdb', (req, res) => {
+//     let sql = 'create database mysql_express';
+//     db.query(sql, (err, result) => {
+//             if(err){
+//                 throw(err);
+//             }
+//             console.log(result);
+//             res.send('database created');
+//     });
+// });
+
+//create table
+// router.get('/createposttable' , (req, res) => {
+//     let sql = "create table posts (id int(11) auto_increment, title varchar(255), body varchar(255), primary key(id)) "
+//     db.query(sql, (err, result) => {
+//         if(err) throw(err);
+//         console.log(result);
+//         res.send('post table created');
+//     });
+// });
+
+
+
+
+
+router.post('/uploadphoto', (req, res) => {
+	//console.log(req.files.photo);
+	const file = req.files.photo;
+	const driver_id = req.body.driver_id;
+	//console.log(req.body);
+	file.mv("./uploads/"+file.name, function(err, result){
+		if(err) throw err;
+		
+		//start of sending photo
+		const form = new FormData();
+		form.append("name", "photo");
+//other data should go here
+		form.append("photo", fs.createReadStream('./uploads/'+file.name));
+
+
+		axios({
+			method: "post",
+			url: "https://admin.blenefreight.com/api/ext/driver/photo/"+ driver_id,
+  
+			data: form,
+			headers: { 'Authorization': 'Bearer HUFi7JWTsGCofUQRVm9s', ...form.getHeaders() }
+ 
+			})
+			.then(response => {
+			console.log("sent");
+			res.json({"sent" : "1"});
+		
+			}).catch(err => {
+			console.log(err);
+				res.json({"sent" : "2"});
+				});
+				//end of sending photo
+		
+	});
+	
+
+});
+
+router.post('/uploadlicense', (req, res) => {
+	//console.log(req.files.photo);
+	const file = req.files.license;
+	const driver_id = req.body.driver_id;
+	//console.log(req.body);
+	file.mv("./uploads/"+file.name, function(err, result){
+		if(err) throw err;
+		
+		//start of sending photo
+		const form = new FormData();
+		form.append("name", "license");
+//other data should go here
+		form.append("license", fs.createReadStream('./uploads/'+file.name));
+
+
+		axios({
+			method: "post",
+			url: "https://admin.blenefreight.com/api/ext/driver/license/"+ driver_id,
+  
+			data: form,
+			headers: { 'Authorization': 'Bearer HUFi7JWTsGCofUQRVm9s', ...form.getHeaders() }
+ 
+			})
+			.then(response => {
+			console.log("sent");
+			res.json({"sent" : "1"});
+		
+			}).catch(err => {
+			console.log(err);
+				res.json({"sent" : "2"});
+				});
+				//end of sending photo
+		
+	});
+	
+
+});
+
+router.post('/updatedeposit', (req, res) => {
+	//console.log(req.files.photo);
+	//const file = req.files.license;
+	const driver_id = req.body.driver_id;
+	const deposit_balance = req.body.deposit_balance;
+    const transaction_ext_id = req.body.transaction_ext_id;	
+	const deposit_balance_in_words = req.body.deposit_balance_in_words;
+	//console.log(req.body);
+		
+		//start of sending photo
+		// const form = new FormData();
+		// form.append("deposit_balance", deposit_balance);
+		// form.append("transaction_ext_id", transaction_ext_id);
+		// form.append("deposit_balance_in_words", deposit_balance_in_words);
+//other data should go here
+const headers = { 
+                        "Content-Type": "application/json",
+                        'Authorization': 'Bearer HUFi7JWTsGCofUQRVm9s',
+                        'Accept': 'application/json'
+                    };
+					
+		const data = {
+			
+				"deposit_balance" : deposit_balance,
+				"transaction_ext_id" : transaction_ext_id,
+				"deposit_balance_in_words": deposit_balance_in_words
+			
+		};
+		
+		axios({
+			method: "put",
+			url: "https://admin.blenefreight.com/api/ext/driver/"+ driver_id,
+  
+			data: data,
+			headers: headers
+ 
+			})
+			.then(response => {
+			console.log("sent");
+			res.json({"sent" : "1"});
+		
+			}).catch(err => {
+			console.log(err);
+				res.json({"sent" : "2"});
+				});
+				//end of sending photo
+		
+
+});
+router.get('/getfile', (req, res) => {
+	//var driver_id = req.params.driver_id;
+	//var driver_id = "19a282ed-25ae-47be-bac2-c49d4ec5afff";
+	var driver_id = req.query.driver_id;
+	res.sendFile(path.join(__dirname, '../../uploads', driver_id+'.pdf'));
+	
+	//res.send("hello");
+});
+
+
+router.post('/getdriver', (req, res) => {
+	//console.log(req.files.photo);
+	//const file = req.files.license;
+	const search_key = req.body.search_key;
+	
+	//console.log(req.body);
+		 const headers = { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer HUFi7JWTsGCofUQRVm9s',
+                    'Accept': 'application/json'
+                };
+		
+//other data should go here
+		axios.get("https://admin.blenefreight.com/api/ext/driver/"+ search_key, { headers }).then(resp => {
+			
+			console.log(resp.data);
+			
+			// now we have to download the license to uploads folder--------------------------
+			
+			// downloadFile(resp.data.data.license, './uploads/');
+			// console.log(resp.data.data.license);
+			const file = fs.createWriteStream("./uploads/"+resp.data.data.id+".pdf");
+			const request = https.get(resp.data.data.license, function(response) {
+			response.pipe(file);
+});
+
+			//end of downloading the license to uploads folder---------------------------
+			res.json(resp.data);
+}).catch( err => {
+	res.json({"sent" : "2"});
+    
+});
+		// axios({
+			// method: "get",
+			// url: "https://admin.blenefreight.com/api/ext/driver/"+ search_key,
+  
+			
+			// headers: { 
+			// "Content-Type": "application/json",
+                    // 'Authorization': 'Bearer HUFi7JWTsGCofUQRVm9s',
+                    // 'Accept': 'application/json' 
+					// }
+ 
+			// })
+			// .then(response => {
+			//console.log("sent");
+			//res.json({"sent" : "1"});
+				// res.json(response);
+			// }).catch(err => {
+			// console.log(err);
+				// res.json({"sent" : "2"});
+			
+				// });
+				//end of sending photo
+		
+	
+	
+});
+
+router.post('/registerdriver', (req, res) => {
+	//console.log(req.files.photo);
+	
+	// const phone = req.body.phone;
+	// const full_name = req.body.fullName;
+	// const email = req.body.email;
+	// const car_brand = req.body.carBrand;
+	// const car_model = req.body.carModel;
+	// const plate = req.body.plate;
+	// const service_id = req.body.serviceId;
+	// const deposit_balance = 0;
+	//console.log(req.body);
+	
+	
+		
+		//start of sending photo
+		// const form = new FormData();
+		// form.append("name", "license");
+//other data should go here
+		//console.log(req.body);
+		const headers = { 
+                        "Content-Type": "application/json",
+                        'Authorization': 'Bearer HUFi7JWTsGCofUQRVm9s',
+                        'Accept': 'application/json'
+                    };
+
+
+		axios({
+			method: "post",
+			url: "https://admin.blenefreight.com/api/ext/driver",
+  
+			data: req.body,
+			headers: headers
+ 
+			})
+			.then(response => {
+			console.log("sent");
+			//console.log(response.data);
+			//res.json({"sent" : "1"});
+			//res.json(response);
+			res.json(response.data);
+		    
+			}).catch(err => {
+			console.log(err);
+			res.json({"sent" : "2"});
+				});
+				//end of sending photo
+		
+
+	
+
+});
+
+function base64_encode(file) {
+    // read binary data
+    var bitmap = fs.readFileSync(file);
+    // convert binary data to base64 encoded string
+    return new Buffer(bitmap).toString('base64');
+}
+
+function toDataUrl(url, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+        var reader = new FileReader();
+        reader.onloadend = function() {
+            callback(reader.result);
+        }
+        reader.readAsDataURL(xhr.response);
+    };
+    xhr.open('GET', url);
+    xhr.responseType = 'blob';
+    xhr.send();
+}
+const getBase64FromUrl = async (url) => {
+  const data = await fetch(url);
+  const blob = await data.blob();
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(blob); 
+    reader.onloadend = () => {
+      const base64data = reader.result;   
+      resolve(base64data);
+    }
+  });
+}
+
+router.post('/getbase64', async (req, res) => {
+	
+	// const imagepath = "https://yayaride.s3.us-east-2.amazonaws.com/photo/driver-19a282ed-25ae-47be-bac2-c49d4ec5afff.png";
+	  const imagepath = req.body.imgpath;
+	const b64 = await fetch(imagepath)
+      .then((response) => response.buffer())
+      .then((buffer) => {
+        const b64 = buffer.toString('base64');
+        return b64;
+      })
+      .catch(console.error);
+	  console.log(b64);
+	  res.json({"base_64" : b64});
+	
+
+});
+
+router.post('/sendfile',  (req, res) => {
+	
+  	let file2 = {
+		name: 'sample.jpg',
+		path: './uploads/sample.jpg'
+		};
+
+	
+});
+router.post('/acceptfile',  (req , res) => {
+	//console.log(req.body);
+	//res.send("sent");
+	//const file = req.body;
+	const file = req.files.photo;
+	//console.log(file);
+	   file.mv("./uploads2/"+file.name, function(err, result){
+		 // if(err) throw err;
+		
+	  });
+	
+	res.send("sent");
+	
+});
+router.post('/exportExcelRegistrationLogs' , (req, res) => {
+     //let body = req.body;
+    const registration_logs = req.body; 
+    
+
+    const workSheetColumnNames = [
+        "Phone", "Full Name", "Email Address", "Car Brand", "Car Model", "Plate", "Service Id", "Username", "User Id" , "Branch Code", "Log Time"
+       
+    ]; 
+    
+    var today = new Date().getTime();
+    // one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+    const workSheetName = "Registration Logs";
+    //const filePath = "./excel-exported-from-js.xlsx";
+    var filePath = process.env.USERPROFILE + "/Downloads/reg-logs-"+today+".xlsx";
+
+    const data = registration_logs.map(one_row => {
+            return [one_row["phone"], one_row["full_name"], one_row["email_address"], one_row["car_brand"], 
+            one_row["car_model"], one_row["plate"], one_row["service_id"], one_row["user_name"], 
+            one_row["user_id"], one_row["branch_code"], one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+            ];
+    });
+    //exportExcel(data, workSheetColumnNames, workSheetName, filePath);
+     const workBook =  xlsx.utils.book_new();
+     const workSheetData = [
+             workSheetColumnNames,
+             ... data
+     ];
+     const workSheet = xlsx.utils.aoa_to_sheet(workSheetData);
+     xlsx.utils.book_append_sheet(workBook, workSheet, workSheetName);
+     xlsx.writeFile(workBook, path.resolve(filePath));
+         res.json({"downloaded":"1"});
+});
+router.post('/exportExcelPhotoLogs' , (req, res) => {
+     //let body = req.body;
+    const photo_logs = req.body; 
+    
+
+    const workSheetColumnNames = [
+        "Driver Id", "Phone", "Full Name", "Username", "User Id" , "Branch Code", "Log Time"
+       
+    ]; 
+    
+    var today = new Date().getTime();
+    // one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+    const workSheetName = "Registration Logs";
+    //const filePath = "./excel-exported-from-js.xlsx";
+    var filePath = process.env.USERPROFILE + "/Downloads/photo-logs-"+today+".xlsx";
+
+    const data = photo_logs.map(one_row => {
+            return [one_row["driver_id"], one_row["phone"], one_row["full_name"] ,
+           one_row["user_name"], 
+            one_row["user_id"], one_row["branch_code"], one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+            ];
+    });
+    //exportExcel(data, workSheetColumnNames, workSheetName, filePath);
+     const workBook =  xlsx.utils.book_new();
+     const workSheetData = [
+             workSheetColumnNames,
+             ... data
+     ];
+     const workSheet = xlsx.utils.aoa_to_sheet(workSheetData);
+     xlsx.utils.book_append_sheet(workBook, workSheet, workSheetName);
+     xlsx.writeFile(workBook, path.resolve(filePath));
+         res.json({"downloaded":"1"});
+});
+router.post('/exportExcelLicenseLogs' , (req, res) => {
+     //let body = req.body;
+    const license_logs = req.body; 
+    
+
+    const workSheetColumnNames = [
+        "Driver Id", "Phone", "Full Name", "Username", "User Id" , "Branch Code", "Log Time"
+       
+    ]; 
+    
+    var today = new Date().getTime();
+    // one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+    const workSheetName = "Registration Logs";
+    //const filePath = "./excel-exported-from-js.xlsx";
+    var filePath = process.env.USERPROFILE + "/Downloads/license-logs-"+today+".xlsx";
+
+    const data = license_logs.map(one_row => {
+            return [one_row["driver_id"], one_row["phone"], one_row["full_name"] ,
+           one_row["user_name"], 
+            one_row["user_id"], one_row["branch_code"], one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+            ];
+    });
+    //exportExcel(data, workSheetColumnNames, workSheetName, filePath);
+     const workBook =  xlsx.utils.book_new();
+     const workSheetData = [
+             workSheetColumnNames,
+             ... data
+     ];
+     const workSheet = xlsx.utils.aoa_to_sheet(workSheetData);
+     xlsx.utils.book_append_sheet(workBook, workSheet, workSheetName);
+     xlsx.writeFile(workBook, path.resolve(filePath));
+         res.json({"downloaded":"1"});
+});
+
+router.post('/exportExcelDepositLogs' , (req, res) => {
+     //let body = req.body;
+    const deposit_logs = req.body; 
+    
+
+    const workSheetColumnNames = [
+        "Driver Id", "Phone", "Full Name", "Deposit Amount", "Deposit Amount Words", "Transaction_id", "Username", "User Id" , "Branch Code", "Log Time"
+       
+    ]; 
+    
+    var today = new Date().getTime();
+    // one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+    const workSheetName = "Registration Logs";
+    //const filePath = "./excel-exported-from-js.xlsx";
+    var filePath = process.env.USERPROFILE + "/Downloads/deposit-logs-"+today+".xlsx";
+
+    const data = deposit_logs.map(one_row => {
+            return [one_row["driver_id"], one_row["phone"], one_row["full_name"] ,
+           one_row["deposit_amount"], one_row["deposit_amount_words"], one_row["transaction_id"], one_row["user_name"], 
+            one_row["user_id"], one_row["branch_code"], one_row["log_time"].replace(/T/, ' ').replace(/\..+/, '') 
+            ];
+    });
+    //exportExcel(data, workSheetColumnNames, workSheetName, filePath);
+     const workBook =  xlsx.utils.book_new();
+     const workSheetData = [
+             workSheetColumnNames,
+             ... data
+     ];
+     const workSheet = xlsx.utils.aoa_to_sheet(workSheetData);
+     xlsx.utils.book_append_sheet(workBook, workSheet, workSheetName);
+     xlsx.writeFile(workBook, path.resolve(filePath));
+         res.json({"downloaded":"1"});
+});
+
+
+router.post('/deletecashier', (req, res) => {
+	let body = req.body;
+
+			let sql = `delete from cashiers  where id = ${body.id} `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			
+		
+});
+
+router.post('/deleteadmin', (req, res) => {
+	let body = req.body;
+
+			let sql = `delete from admins  where id = ${body.id} `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			
+		
+});
+router.post('/deletepartner', (req, res) => {
+	let body = req.body;
+
+			let sql = `delete from partners  where id = ${body.id} `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			
+		
+});
+router.post('/editcashier', (req, res) => {
+	let body = req.body;
+	let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+	
+				
+			let sql = `update cashiers set full_name = '${body.fullName}' , password = '${password}' , shop_number = '${body.shopNumber}' where id = ${body.id} `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			
+
+});
+
+router.post('/editadmin', (req, res) => {
+	let body = req.body;
+	let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+	
+				
+			let sql = `update admins set full_name = '${body.fullName}' , password = '${password}'  where id = ${body.id} `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			
+
+});
+
+router.post('/editpartner', (req, res) => {
+	let body = req.body;
+	let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+	
+				
+			let sql = `update partners set full_name = '${body.fullName}' , password = '${password}'  where id = ${body.id} `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			
+
+});
+
+router.post('/addcashier', (req, res) => {
+	let body = req.body;
+	//let user_name = "cashier1";
+	let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+	
+	let sql2 = `select * from cashiers where username = '${body.username}' `;
+	let query2 = db.query(sql2, (err2, result2) => {
+		if(err2){
+			throw(err2);
+		}
+		else{
+			if(result2.length > 0){
+				res.json({"saved" : "2"});
+			}
+			else{
+				let sql = `insert into cashiers (full_name, username, password, shop_number) values('${body.fullName}','${body.username}', '${password}', '${body.shopNumber}')`;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			}
+		}
+	});
+	
+	
+});
+
+
+router.post('/addadmin', (req, res) => {
+	let body = req.body;
+	//let user_name = "cashier1";
+	let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+	
+	let sql2 = `select * from admins where username = '${body.username}' `;
+	let query2 = db.query(sql2, (err2, result2) => {
+		if(err2){
+			throw(err2);
+		}
+		else{
+			if(result2.length > 0){
+				res.json({"saved" : "2"});
+			}
+			else{
+				let sql = `insert into admins (full_name, username, password) values('${body.fullName}','${body.username}', '${password}' )`;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			}
+		}
+	});
+	
+	
+});
+
+router.post('/addpartner', (req, res) => {
+	let body = req.body;
+	//let user_name = "cashier1";
+	let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+	
+	let sql2 = `select * from partners where username = '${body.username}' `;
+	let query2 = db.query(sql2, (err2, result2) => {
+		if(err2){
+			throw(err2);
+		}
+		else{
+			if(result2.length > 0){
+				res.json({"saved" : "2"});
+			}
+			else{
+				let sql = `insert into partners (full_name, username, password) values('${body.fullName}','${body.username}', '${password}' )`;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 res.json({"saved" : "1"});
+		// console.log("cashier created");
+	 }
+   
+    });
+			}
+		}
+	});
+	
+	
+});
+
+router.get('/getallcashiers', (req, res) => {
+	let sql = `select * from cashiers`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 
+		res.json(result);
+	 }
+		
+	});
+	
+});
+router.get('/getalladmins', (req, res) => {
+	let sql = `select * from admins`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 
+		res.json(result);
+	 }
+		
+	});
+	
+});
+
+router.get('/getallpartners', (req, res) => {
+	let sql = `select * from partners`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            //res.json({"checked":"3"});
+             throw(err);
+        }
+     else {
+		 
+		res.json(result);
+	 }
+		
+	});
+	
+});
+//check credentials
+
+router.post('/checkcashiercredentials', (req, res) => {
+    let body = req.body;
+
+    
+    let userName = body.userName;
+    //let password = body.password;
+    let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+    let sql = `select * from cashiers where username = '${userName}' `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            res.json({"checked":"3"});
+             throw(err);
+        }
+     
+  
+      if(result.length > 0){
+          result.map((user) => {
+              var bytes = CryptoJS.AES.decrypt(user.password, 'my-secret-key@123');
+              var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+
+              var bytes2 = CryptoJS.AES.decrypt(password, 'my-secret-key@123');
+              var decryptedData2 = JSON.parse(bytes2.toString(CryptoJS.enc.Utf8)); 
+              decryptedData == decryptedData2 ? res.json({"checked":"1", "result": result}) : res.json({"checked" : "2"});
+
+
+          });
+        // res.json(result[0]['id']);
+    }else{
+        res.json({"checked":"3"});
+    }
+    });
+
+    
+});
+router.post('/checkadmincredentials', (req, res) => {
+    let body = req.body;
+
+    
+    let userName = body.userName;
+    //let password = body.password;
+    let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+    let sql = `select * from admins where username = '${userName}' `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            res.json({"checked":"3"});
+             throw(err);
+        }
+     
+  
+      if(result.length > 0){
+          result.map((user) => {
+              var bytes = CryptoJS.AES.decrypt(user.password, 'my-secret-key@123');
+              var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+
+              var bytes2 = CryptoJS.AES.decrypt(password, 'my-secret-key@123');
+              var decryptedData2 = JSON.parse(bytes2.toString(CryptoJS.enc.Utf8)); 
+              decryptedData == decryptedData2 ? res.json({"checked":"1", "result": result}) : res.json({"checked" : "2"});
+
+          });
+        // res.json(result[0]['id']);
+    }else{
+        res.json({"checked":"3"});
+    }
+    });
+
+    
+});
+
+router.post('/checkpartnercredentials', (req, res) => {
+    let body = req.body;
+
+    
+    let userName = body.userName;
+    //let password = body.password;
+    let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+    let sql = `select * from partners where username = '${userName}' `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            res.json({"checked":"3"});
+             throw(err);
+        }
+     
+  
+      if(result.length > 0){
+          result.map((user) => {
+              var bytes = CryptoJS.AES.decrypt(user.password, 'my-secret-key@123');
+              var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+
+              var bytes2 = CryptoJS.AES.decrypt(password, 'my-secret-key@123');
+              var decryptedData2 = JSON.parse(bytes2.toString(CryptoJS.enc.Utf8)); 
+              decryptedData == decryptedData2 ? res.json({"checked":"1", "result": result}) : res.json({"checked" : "2"});
+
+          });
+        // res.json(result[0]['id']);
+    }else{
+        res.json({"checked":"3"});
+    }
+    });
+
+    
+});
+router.post('/fetchemailaddress', (req, res) => {
+let body = req.body;
+  let userName = body.userName;
+  function generateRandomNumber() {
+    var minm = 100000;
+    var maxm = 999999;
+    return Math.floor(Math
+    .random() * (maxm - minm + 1)) + minm;
+}
+let random_output = generateRandomNumber();
+
+     let sql = `update users set confirmation_num = '${random_output}' where username = '${userName}' `;
+     let query = db.query(sql, (err, result) => {
+        if(err) {
+           // res.json({"random":"3"});
+             throw(err);
+        }
+       // res.json({"random":"1"});
+
+    });
+
+// ---------now on to fetching the email and the confirmation number of the user-----------
+  let sql2 =  `select * from users where username = '${userName}'`;
+   let query2 = db.query(sql2, (err, results) => {
+        if(err) throw(err);
+        //console.log(results[0]['id']);
+        //res.send('post added');
+        res.json(results);
+    });
+
+
+});
+router.post('/confirmconfirmnum', (req, res) => {
+    let body = req.body;
+    let userName = body.userName;
+    let confirmConfirmNum = body.confirmConfirmNum;
+    let sql = `select * from users where username = '${userName}' and confirmation_num = '${confirmConfirmNum}'`;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+            res.json({"checked":"3"});
+             throw(err);
+        }
+
+      if(result.length > 0){
+          
+              res.json({"checked":"1"});
+        }else{
+        res.json({"checked":"4"});
+        }
+
+      
+
+});
+});
+router.post('/resetpassword', (req, res) => {
+ let body = req.body;
+ let userName = body.userName;
+    //let password = body.password;
+ let password = CryptoJS.AES.encrypt(JSON.stringify(body.password), 'my-secret-key@123').toString();
+ let sql = `update users set password = '${password}' where username = '${userName}' `;
+ let query = db.query(sql, (err, result) => {
+        if(err) {
+            res.json({"reset":"3"});
+             throw(err);
+        }
+        res.json({"reset":"1"});
+
+    });
+
+});
+//insert registration
+
+router.post('/addregistration', (req, res) => {
+    //let post = {title: 'post one', body: 'body one'};
+    var today = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    let registration = req.body;
+
+    
+     
+    let sql = `insert into logs_registrations (phone, full_name, email_address, car_brand, car_model, 
+    plate, service_id, user_name, user_id, branch_code, log_time)
+    values ('${registration.phone}', '${registration.full_name}', '${registration.email_address}',
+    '${registration.car_brand}', '${registration.car_model}', '${registration.plate}', '${registration.service_id}',
+     '${registration.user_name}','${registration.user_id}', '${registration.branch_code}','${today}')
+    `;
+    // let sql = `insert into posts set ?`;
+    let query = db.query(sql,  (err, result) => {
+        if(err) {
+            throw(err);
+             res.json({"registered" : "2"});
+        }
+        else{
+            console.log(result);
+            res.json({"registered" : "1"});
+        }
+        
+    });
+    // res.json({"registered" : "1", "data" : req.body});
+});
+//insert deposit
+
+router.post('/adddeposits', (req, res) => {
+    //let post = {title: 'post one', body: 'body one'};
+    var today = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    let depositing = req.body;
+
+    
+     
+    let sql = `insert into logs_deposits (driver_id, phone, full_name, deposit_amount, deposit_amount_words, transaction_id, user_name, user_id, branch_code, log_time)
+    values ('${depositing.driver_id}','${depositing.phone}', '${depositing.full_name}', 
+    '${depositing.deposit_amount}', '${depositing.deposit_amount_words}'
+     , '${depositing.transaction_id}','${depositing.user_name}','${depositing.user_id}', 
+     '${depositing.branch_code}','${today}')
+    `;
+    // let sql = `insert into posts set ?`;
+    let query = db.query(sql,  (err, result) => {
+        if(err) {
+            throw(err);
+             res.json({"deposited" : "2"});
+        }
+        else {
+            console.log(result);
+            res.json({"deposited" : "1"});
+        }
+        
+    });
+    // res.json({"registered" : "1", "data" : req.body});
+});
+
+//insert photo
+
+router.post('/addphotos', (req, res) => {
+    //let post = {title: 'post one', body: 'body one'};
+    var today = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    let photo_upload = req.body;
+
+    
+     
+    let sql = `insert into logs_photos (driver_id, phone, full_name,  user_name, user_id, branch_code, log_time)
+    values ('${photo_upload.driver_id}','${photo_upload.phone}', '${photo_upload.full_name}', 
+     '${photo_upload.user_name}','${photo_upload.user_id}', '${photo_upload.branch_code}','${today}')
+    `;
+    // let sql = `insert into posts set ?`;
+    let query = db.query(sql,  (err, result) => {
+        if(err) {
+            throw(err);
+             res.json({"uploaded" : "2"});
+        }
+        else{
+            console.log(result);
+            res.json({"uploaded" : "1"});
+        }
+        
+    });
+    // res.json({"registered" : "1", "data" : req.body});
+});
+//insert license
+
+router.post('/addlicenses', (req, res) => {
+    //let post = {title: 'post one', body: 'body one'};
+    var today = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    let licensed = req.body;
+
+    
+     
+    let sql = `insert into logs_licenses (driver_id, phone, full_name,  user_name, user_id, branch_code, log_time)
+    values ('${licensed.driver_id}','${licensed.phone}', '${licensed.full_name}', 
+     '${licensed.user_name}','${licensed.user_id}', '${licensed.branch_code}','${today}')
+    `;
+    // let sql = `insert into posts set ?`;
+    let query = db.query(sql,  (err, result) => {
+        if(err) {
+            throw(err);
+             res.json({"uploaded" : "2"});
+        }
+        else{
+            console.log(result);
+            res.json({"uploaded" : "1"});
+        }
+        
+    });
+    // res.json({"registered" : "1", "data" : req.body});
+});
+
+
+
+
+
+//fetchregistrationlogs
+router.get('/fetchregistrationlogs', (req, res) => {
+   
+    let sql = `select * from logs_registrations`;
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+
+//fetchregistrationfilterlogs
+router.post('/fetchregistrationfilterlogs', (req, res) => {
+    let filter_data = req.body;
+    
+    let sql = '';
+    if(filter_data.filterColumn.indexOf("time") !== -1){
+    // it has time so to and from
+         sql = `select * from logs_registrations where ${filter_data.filterColumn} between 
+        '${filter_data.txtFrom}' and '${filter_data.txtTo}'`;
+    }else{
+    // it doesn't have time so no to and from
+          //  search_key = filter_data.txtSearch;
+             sql = `select * from logs_registrations where ${filter_data.filterColumn} like '%${filter_data.txtSearch}%'`;
+    }
+
+   
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+//fetchdepositlogs
+router.get('/fetchdepositlogs', (req, res) => {
+   
+    let sql = `select * from logs_deposits`;
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+//fetchdepositfilterlogs
+router.post('/fetchdepositfilterlogs', (req, res) => {
+    let filter_data = req.body;
+    
+    let sql = '';
+    if(filter_data.filterColumn.indexOf("time") !== -1){
+    // it has time so to and from
+         sql = `select * from logs_deposits where ${filter_data.filterColumn} between 
+        '${filter_data.txtFrom}' and '${filter_data.txtTo}'`;
+    }else{
+    // it doesn't have time so no to and from
+          //  search_key = filter_data.txtSearch;
+             sql = `select * from logs_deposits where ${filter_data.filterColumn} like '%${filter_data.txtSearch}%'`;
+    }
+
+   
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+
+//fetchphotologs
+router.get('/fetchphotologs', (req, res) => {
+   
+    let sql = `select * from logs_photos`;
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+//fetchphotofilterlogs
+router.post('/fetchphotofilterlogs', (req, res) => {
+    let filter_data = req.body;
+    
+    let sql = '';
+    if(filter_data.filterColumn.indexOf("time") !== -1){
+    // it has time so to and from
+         sql = `select * from logs_photos where ${filter_data.filterColumn} between 
+        '${filter_data.txtFrom}' and '${filter_data.txtTo}'`;
+    }else{
+    // it doesn't have time so no to and from
+          //  search_key = filter_data.txtSearch;
+             sql = `select * from logs_photos where ${filter_data.filterColumn} like '%${filter_data.txtSearch}%'`;
+    }
+
+   
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+
+//fetchlicenselogs
+router.get('/fetchlicenselogs', (req, res) => {
+   
+    let sql = `select * from logs_licenses`;
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+//fetchlicensefilterlogs
+router.post('/fetchlicensefilterlogs', (req, res) => {
+    let filter_data = req.body;
+    
+    let sql = '';
+    if(filter_data.filterColumn.indexOf("time") !== -1){
+    // it has time so to and from
+         sql = `select * from logs_licenses where ${filter_data.filterColumn} between 
+        '${filter_data.txtFrom}' and '${filter_data.txtTo}'`;
+    }else{
+    // it doesn't have time so no to and from
+          //  search_key = filter_data.txtSearch;
+             sql = `select * from logs_licenses where ${filter_data.filterColumn} like '%${filter_data.txtSearch}%'`;
+    }
+
+   
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        console.log(result);
+        res.json(result);
+    });
+});
+
+//select single post
+
+// router.get('/selectposts/:id', (req, res) => {
+//     let id = req.params.id;
+//     let sql = `select * from posts where id = ${id}`;
+//     let query = db.query(sql, (err, result) => {
+//         if(err) throw(err);
+//         console.log(result);
+//         //res.send('post added');
+//         res.json(result);
+//     });
+// });
+
+//update posts
+// router.get('/updateposts/:id', (req, res) => {
+//     let newTitle = 'new title';
+//     let id = req.params.id;
+//     let sql = ` update  posts set title = '${newTitle}' where id = ${id} `;
+//     let query = db.query(sql, (err, result) => {
+//         if(err) throw(err);
+//         console.log(result);
+//         //res.send('post added');
+//         res.json(result);
+//     });
+// });
+
+//delete post
+// router.get('/deleteposts/:id', (req, res) => {
+    
+//     let id = req.params.id;
+//     let sql = ` delete from posts where id = ${id} `;
+//     let query = db.query(sql, (err, result) => {
+//         if(err) throw(err);
+//         console.log(result);
+//         //res.send('post added');
+//         res.json(result);
+//     });
+    
+// });
+router.get('/getopenstatus/', (req, res) => {
+	var current_game_id = 1;
+	var random_number = 1;
+	var winner_number = 1;
+	var open_status = "closed";
+	var time_remaining = 45000;
+    
+    let sql = `select * from open_status where id = 1 `;
+    let query = db.query(sql, (err, result) => {
+        if(err) throw(err);
+        //console.log(result);
+        //res.send('post added');
+        //res.json(result);
+		result.map((open_status_tbl) => {
+			open_status = open_status_tbl.status;
+			time_remaining = open_status_tbl.time_remaining;
+			
+		});
+		//------------------------------------------------------------get the random stuff-----------------------------------------------------------------
+	    let sql2 = ` SELECT * FROM game_winner ORDER BY ID DESC LIMIT 1 `;
+    let query = db.query(sql2, (err2, result2) => {
+        if(err2) {
+           //res.json({"checked":"3"});
+           //  throw(err);
+        }
+     
+    else{
+      if(result2.length > 0){
+          result2.map((game) => {
+              current_game_id = game.game_number;
+			  random_number = game.random_number;
+			  winner_number = game.winner_number;
+
+          });
+		  res.json({ "current_game_id" : current_game_id, "random_number" : random_number, 
+		  "winner_number" : winner_number, "open_status" : open_status , 
+		  "time_remaining" : time_remaining });
+        // res.json(result[0]['id']);
+    }else{
+       // res.json({"checked":"3"});
+    }
+	}
+    });
+	//------------------------------------------------------------end of get the random stuff-----------------------------------------------------------------
+		
+    });
+	
+	
+	
+});
+
+
+
+router.get('/onetwentyrows/' , (req, res) => {
+		//------------------------------------------------------------get the random stuff-----------------------------------------------------------------
+	    
+		let sql1 = 'select * from game_winner order by id desc limit  1';
+		let query1 = db.query(sql1, (err1, result1) => {
+        if(err1) {
+           res.json({"checked":"no rows"});
+           //  throw(err);
+        }
+     
+    else{
+      if(result1.length > 0){
+         // res.json({"checked":"1"});
+		 // res.json(result);
+        // res.json(result[0]['id']);
+		
+		//-------------------------------------------------now the meat----------------------------------------------------------------
+		let sql = 'select * from game_winner order by id desc limit  10';
+		
+		if(result1[0].random_number == 0){
+			//sql = 'select * from game_winner order by id desc limit 10 offset 1';
+			//console.log("working");
+			sql = `select winner_number , count(winner_number) as count_amount from game_winner 
+		
+		           where id > 
+				   (select id from game_winner order by id desc limit 1 offset 121)
+				   and id < (select max(id) from game_winner)
+				   group by winner_number`;
+		}else{
+			//sql = 'select * from game_winner order by id desc limit 10';
+			//console.log("not working");
+			sql = `select winner_number , count(winner_number) as count_amount from game_winner 
+		
+		           where id > 
+				   (select id from game_winner order by id desc limit 1 offset 120)
+				   
+				   group by winner_number`;
+		}
+		
+		
+		
+		
+		//let sql = 'select id from game_winner order by id desc limit 1 offset 120';
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+          // res.json({"checked":"3"});
+		  res.json(err);
+           //  throw(err);
+        }
+     
+    else{
+      if(result.length > 0){
+         // res.json({"checked":"1"});
+		  res.json(result);
+        // res.json(result[0]['id']);
+    }else{
+        res.json({"checked":"zero rows"});
+    }
+	}
+    });
+	
+	  }
+	}
+	
+		});
+	//------------------------------------------------------------end of get the random stuff-----------------------------------------------------------------
+	
+});
+
+router.get('/hotcold/' , (req, res) => {
+		//------------------------------------------------------------get the random stuff-----------------------------------------------------------------
+	    
+		let sql1 = 'select * from game_winner order by id desc limit  1';
+		let query1 = db.query(sql1, (err1, result1) => {
+        if(err1) {
+           res.json({"checked":"3"});
+           //  throw(err);
+        }
+     
+    else{
+      if(result1.length > 0){
+         // res.json({"checked":"1"});
+		 // res.json(result);
+        // res.json(result[0]['id']);
+		if(result1[0].random_number == 0){
+			//sql = 'select * from game_winner order by id desc limit 10 offset 1';
+			//console.log("working");
+		let	sql = `select winner_number , count(winner_number) as count_amount from game_winner 
+		
+		           where id > 
+				   (select id from game_winner order by id desc limit 1 offset 121)
+				   and id < (select max(id) from game_winner)
+				   group by winner_number
+				   order by count_amount
+				   `;
+		}else{
+			//sql = 'select * from game_winner order by id desc limit 10';
+			//console.log("not working");
+		let	sql = `select winner_number , count(winner_number) as count_amount from game_winner 
+		
+		           where id > 
+				   (select id from game_winner order by id desc limit 1 offset 120)
+				   group by winner_number
+				   order by count_amount
+				   `;
+		}
+		let sql = `select winner_number , count(winner_number) as count_amount from game_winner 
+		
+		           where id > 
+				   (select id from game_winner order by id desc limit 1 offset 121)
+				   group by winner_number
+				   order by count_amount
+				   `;
+		//let sql = 'select id from game_winner order by id desc limit 1 offset 120';
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+           res.json({"checked":"3"});
+           //  throw(err);
+        }
+     
+    else{
+      if(result.length > 0){
+         // res.json({"checked":"1"});
+		  res.json(result);
+        // res.json(result[0]['id']);
+    }else{
+        res.json({"checked":"3"});
+    }
+	}
+    });
+		
+	  }
+	}
+		});
+		
+		
+	//------------------------------------------------------------end of get the random stuff-----------------------------------------------------------------
+	
+});
+
+router.get('/lasttenrows/' , (req, res) => {
+		//------------------------------------------------------------get the random stuff-----------------------------------------------------------------
+	    
+		let sql1 = 'select * from game_winner order by id desc limit  1';
+		let query1 = db.query(sql1, (err1, result1) => {
+        if(err1) {
+           res.json({"checked":"3"});
+           //  throw(err);
+        }
+     
+    else{
+      if(result1.length > 0){
+         // res.json({"checked":"1"});
+		 // res.json(result);
+        // res.json(result[0]['id']);
+		
+		//-------------------------------------------------now the meat----------------------------------------------------------------
+		let sql = 'select * from game_winner order by id desc limit  10';
+		if(result1[0].random_number == 0){
+			sql = 'select * from game_winner order by id desc limit 10 offset 1';
+			//console.log("working");
+		}else{
+			sql = 'select * from game_winner order by id desc limit 10';
+			//console.log("not working");
+		}
+		
+							let query = db.query(sql, (err, result) => {
+								if(err) {
+								   res.json({"checked":"3"});
+								   //  throw(err);
+								}
+							 
+							else{
+							  if(result.length > 0){
+								 // res.json({"checked":"1"});
+								  res.json(result);
+								// res.json(result[0]['id']);
+							}else{
+								res.json({"checked":"3"});
+							}
+							}
+							});
+								}
+								else{
+									res.json({"checked":"3"});
+								}
+		//------------------------------------------------end of now the meat------------------------------------------------------------
+		
+    
+	}
+    });
+		
+		
+		
+		
+	//------------------------------------------------------------end of get the random stuff-----------------------------------------------------------------
+	
+});
+
+router.get('/getwinnernumber/' , (req, res) => {
+		//------------------------------------------------------------get the random stuff-----------------------------------------------------------------
+	    
+		
+		let sql = `select * from game_winner order by id desc limit 1`;
+		
+		//let sql = 'select id from game_winner order by id desc limit 1 offset 120';
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+           res.json({"checked":"3"});
+           //  throw(err);
+        }
+     
+    else{
+      if(result.length > 0){
+         // res.json({"checked":"1"});
+		  res.json(result);
+        // res.json(result[0]['id']);
+    }else{
+        res.json({"checked":"3"});
+    }
+	}
+    });
+	//------------------------------------------------------------end of get the random stuff-----------------------------------------------------------------
+	
+});
+
+router.post('/counttotalbets' , (req, res) => {
+	let game_number = req.body.game_number;
+	let sql = `select sum(bet_money) as total_bet_money , count(*) as bet_count from tickets where game_number = ${game_number}`;
+	let query = db.query(sql, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+           
+			console.log("error");
+        }
+		
+    else{
+		
+		if(result.length > 0){
+         
+		    
+             res.json(result);
+			 
+			}else{
+				
+		
+			
+			}
+			
+		
+	}
+      
+    });
+});
+
+router.get('/getnextticketnumber/' , (req, res) => {
+		let sql_max_id = `SELECT * FROM tickets ORDER BY id DESC LIMIT 1`;
+	 let query = db.query(sql_max_id, (err, result) => {
+        if(err) {
+            //res.json({"checked":"3"});
+           
+			console.log("error in max id");
+        }
+		
+    else{
+		
+		if(result.length > 0){
+          result.map((ticket) => {
+			
+              next_ticket_number = (ticket.ticket_number * 1) + 1;
+        
+          });
+		    
+             res.json({"next_ticket_number" : next_ticket_number});
+			 
+			}else{
+				
+			next_ticket_number = 1;
+			res.json({"next_ticket_number" : next_ticket_number});
+			
+			}
+			
+		
+	}
+      
+    });
+	
+});
+
+router.post('/ticketregistration', (req, res) => {
+    //let post = {title: 'post one', body: 'body one'};
+    var today = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    let registration = req.body;
+
+       for(var i = 0; i < registration.length; i++){
+		   
+		   let sql = `insert into tickets (ticket_number, game_number, bet_type, bet_value, bet_money, 
+    win_money, bet_time, win_status, cashier_name, paid, cancelled )
+    values ('${registration[i].ticket_number}', '${registration[i].game_number}', '${registration[i].bet_type}',
+    '${registration[i].bet_value}', '${registration[i].bet_money}', '${registration[i].win_money}', '${today}', 
+	'${registration[i].win_status}', '${registration[i].cashier_name}', '${registration[i].paid}', '${registration[i].cancelled}' )
+    `;
+    // let sql = `insert into posts set ?`;
+    let query = db.query(sql,  (err, result) => {
+        if(err) {
+            throw(err);
+             res.json({"registered" : "2"});
+        }
+        else{
+            //console.log(result);
+          //  res.json({"registered" : "1"});
+		  
+        }
+        
+    });
+		   
+	   }
+	   let total_bet_money = 0;
+	   let total_paid_money = 0;
+	   let since_id = 0;
+	   let total_on_hand = 0;
+	   
+	   
+	   let sql2 = `select * from on_hand_cash`;
+       let query2 = db.query(sql2, (err2, result2)	=> {
+		   if(err2) {
+            throw(err2);
+            // res.json({"registered" : "2"});
+        }
+        else {
+          since_id = result2[0].since_id;
+		  let sql3 = `select sum(bet_money) as total_bet_money from tickets where id > ${since_id} and cancelled = 'no'`;
+		  let query3 = db.query(sql3, (err3, result3) => {
+			  if(err3) {
+            throw(err3);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			if(result3.length > 0 ){
+				if(result3[0].total_bet_money != null){
+					total_bet_money = result3[0].total_bet_money ;
+				}
+				
+			}else{
+				
+			}
+			
+			let sql4 = `select sum(win_money) as total_paid_money from tickets where id > ${since_id} and cancelled = 'no' and paid = 'yes' ` ;
+			let query4 = db.query(sql4, (err4, result4) => {
+				 if(err4) {
+							throw(err4);
+            // res.json({"registered" : "2"});
+						}
+						else {
+							if(result4.length > 0 ){
+								if(result4[0].total_paid_money != null){
+									total_paid_money = result4[0].total_paid_money ;
+								}
+									
+								} else {
+									
+								}
+								
+								//---------------------------------now update it into the table---------------------------------------
+								total_on_hand = total_bet_money - total_paid_money ;
+								let sql5 = ` update on_hand_cash set amount_on_hand = ${total_on_hand} where id = 1`;
+									let query5 = db.query(sql5, (err5, result5) => {
+											 if(err5) {
+										throw(err5);
+						
+											}
+									else {
+							res.json({"registered" : "1", "data" : req.body});
+						}
+								});
+							
+						}
+				
+			});
+			
+		}
+			  
+			  
+		  });
+		    
+        }
+		   
+	   });   
+    
+      
+    
+	
+	
+   //  res.json({"registered" : "1", "data" : req.body});
+   // res.json({"registered" : "1", "data" : req.body[0].bet_money});
+});
+
+router.post('/getverifyticket', (req, res) => {
+    let ticket_num = req.body;
+    
+	let sql = `select * from tickets where ticket_number = '${ticket_num.ticket_number}' and cancelled = 'no'`;
+   
+   
+    let query = db.query(sql, (err, result) => {
+        if(err) 
+		{throw(err);
+		}
+       // console.log(result);
+       else{ 
+	   res.json(result);
+	 // res.json([{"id" : "1"}, {"id" : "2"}]);
+	   }
+    });
+});
+
+router.post('/gettm', (req, res) => {
+	const today_dt = new Date();
+	const tomorrow_dt = new Date();
+	tomorrow_dt.setDate(tomorrow_dt.getDate() + 1);
+	var today_date = today_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	var tomorrow_date = tomorrow_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	
+	
+	//let tm = req.body;
+	let total_received_money = 0;
+	let total_paid_money = 0;
+	
+	let sql = `select sum(bet_money) as total_bet_money from tickets where  cancelled = 'no'
+	and bet_time between '${today_date}' and '${tomorrow_date}'
+	and bet_time != '${tomorrow_date}'
+	`;
+	let query = db.query(sql, (err, result) => {
+        if(err) 
+		{
+			throw(err);
+		}
+       // console.log(result);
+       else{ 
+	        if(result[0].total_bet_money == null){
+				total_received_money = 0;
+				
+			}
+			else{
+				total_received_money = result[0].total_bet_money;
+			}
+	       
+		   
+		    let sql2 = `select sum(win_money) as total_win_money from tickets where cancelled = 'no' and paid = 'yes'
+				and bet_time between '${today_date}' and '${tomorrow_date}'
+				and bet_time != '${tomorrow_date}'
+		       `;
+			  let query2 = db.query(sql2, (err2, result2) => {
+				if(err2) 
+				{
+					throw(err2);
+				}
+			
+			   else { 
+			
+						
+						if(result2[0].total_win_money == null){
+							total_paid_money = 0;
+						}
+						else{
+							total_paid_money = result2[0].total_win_money;
+							
+						}
+				
+				res.json({ "total_received_money" : total_received_money, "total_paid_money" : total_paid_money, "difference" : total_received_money - total_paid_money });
+				//res.json({"date" : today_date , "next date" : tomorrow_date });
+				
+				//  res.json(result2);
+			   }
+			});
+	 
+	   }
+    });
+	
+	
+});
+
+router.post('/yesterdaytodaystat', (req, res) => {
+	const today_dt = new Date();
+	const tomorrow_dt = new Date();
+	const yesterday_dt = new Date();
+	tomorrow_dt.setDate(tomorrow_dt.getDate() + 1);
+	yesterday_dt.setDate(yesterday_dt.getDate() - 1);
+	
+	var today_date = today_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	var tomorrow_date = tomorrow_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	var yesterday_date = yesterday_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	
+	//let tm = req.body;
+	let today_collected_money = 0;
+	let today_profit = 0;
+	let yesterday_collected_money = 0;
+	let yesterday_profit = 0;
+	
+	let sql = `select sum(bet_money) as total_bet_money from tickets where  cancelled = 'no'
+	and bet_time between '${today_date}' and '${tomorrow_date}'
+	and bet_time != '${tomorrow_date}'
+	`;
+	let query = db.query(sql, (err, result) => {
+        if(err) 
+		{
+			throw(err);
+		}
+       // console.log(result);
+       else{ 
+	        if(result[0].total_bet_money == null){
+				today_collected_money = 0;
+				
+			}
+			else{
+				today_collected_money = result[0].total_bet_money;
+			}
+	       
+		   
+		    let sql2 = `select sum(win_money) as total_win_money from tickets where cancelled = 'no' and paid = 'yes'
+				and bet_time between '${today_date}' and '${tomorrow_date}'
+				and bet_time != '${tomorrow_date}'
+		       `;
+			  let query2 = db.query(sql2, (err2, result2) => {
+				if(err2) 
+				{
+					throw(err2);
+				}
+			
+			   else { 
+	
+						if(result2[0].total_win_money == null){
+							//total_paid_money = 0;
+							today_profit = today_collected_money;
+						}
+						else{
+							today_profit = today_collected_money - result2[0].total_win_money;
+							
+						}
+				
+			
+				
+//-----------------------------------------------start of for yesterday----------------------------------------------------------------------------------
+				let sql3 = `select sum(bet_money) as total_bet_money from tickets where  cancelled = 'no'
+	and bet_time between '${yesterday_date}' and '${today_date}'
+	and bet_time != '${today_date}'
+	`;
+	let query3 = db.query(sql3, (err3, result3) => {
+        if(err3) 
+		{
+			throw(err3);
+		}
+       // console.log(result);
+       else{ 
+	        if(result3[0].total_bet_money == null){
+				yesterday_collected_money = 0;
+				
+			}
+			else{
+				yesterday_collected_money = result3[0].total_bet_money;
+			}
+	       
+		   
+		    let sql4 = `select sum(win_money) as total_win_money from tickets where cancelled = 'no' and paid = 'yes'
+				and bet_time between '${yesterday_date}' and '${today_date}'
+				and bet_time != '${today_date}'
+		       `;
+			  let query4 = db.query(sql4, (err4, result4) => {
+				if(err4) 
+				{
+					throw(err4);
+				}
+			
+			   else { 
+			
+						
+						if(result4[0].total_win_money == null){
+							//total_paid_money = 0;
+							yesterday_profit = yesterday_collected_money;
+						}
+						else{
+							yesterday_profit = yesterday_collected_money - result4[0].total_win_money;
+							
+						}
+				
+				res.json({ "today_collected_money" : today_collected_money, "today_profit" : today_profit, "yesterday_collected_money" : yesterday_collected_money , "yesterday_profit" : yesterday_profit });
+				
+			   }
+			});
+	 
+	   }
+    });
+//---------------------------------------------end of for yesterday-----------------------------------------------------------------------------------
+			   }
+			});
+	 
+	   }
+    });
+	
+	
+});
+
+router.post('/statreportbyday', (req, res) => {
+	 let date_data = req.body;
+     // let date_from = new Date('06/10/2022');
+	 // let date_to = new Date('06/17/2022');
+	 // let next_dt = new Date('06/10/2022');
+	 let date_from = new Date(date_data.from_date);
+	 let date_to = new Date(date_data.to_date);
+	 let next_dt = new Date(date_data.from_date);
+	
+	//date_from.setDate(date_from.getDate() + 0);  //I don't know why but I have add 1 day
+	//next_dt.setDate(next_dt.getDate() + 0);
+	//date_to.setDate(date_to.getDate() + 0);   //I don't know why but I have add 1 day
+	
+	//let day_from = date_from.toISOString().replace('-', '/').split('T')[0].replace('-', '/').split("/")[2] ; //find only the day
+	//let day_to = date_to.toISOString().replace('-', '/').split('T')[0].replace('-', '/').split("/")[2] ;
+	
+	const diffTime = Math.abs(date_to - date_from);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); //in days
+
+	let from_date = date_from.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	 next_dt.setDate(date_from.getDate() + 1);
+	let next_date = next_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	
+	
+	let days_in_range = [];
+	let day_names = [];
+	var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+	let bet_money_total = [];
+	let win_money_total = [];
+	
+	let sql = `select sum(bet_money) as total_bet_money  from tickets where  cancelled = 'no'
+	and bet_time between '${from_date}' and '${next_date}'
+	and bet_time != '${next_date}'
+	`;
+	
+	let sql2 = `select sum(win_money) as total_win_money  from tickets where  cancelled = 'no' and paid = 'yes'
+	and bet_time between '${from_date}' and '${next_date}'
+	and bet_time != '${next_date}'
+	`;
+	
+	days_in_range.push(from_date.split('/')[2]+'-'+from_date.split('/')[1]+'-'+from_date.split('/')[0]);
+	day_names.push(days[date_from.getDay()]);
+	
+	for(var i = 1; i <= diffDays ; i++){
+		
+		date_from.setDate(date_from.getDate() + 1);
+		next_dt.setDate(next_dt.getDate() + 1);
+		from_date = date_from.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+		next_date = next_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+		
+		days_in_range.push(from_date.split('/')[2]+'-'+from_date.split('/')[1]+'-'+from_date.split('/')[0]);
+		
+		day_names.push(days[date_from.getDay()]);
+		
+		sql += `union all select sum(bet_money) as total_bet_money from tickets where  cancelled = 'no'
+	and bet_time between '${from_date}' and '${next_date}'
+	and bet_time != '${next_date}'
+	` ;
+	
+	sql2 += `union all select sum(win_money) as total_win_money from tickets where  cancelled = 'no' and paid = 'yes'
+	and bet_time between '${from_date}' and '${next_date}'
+	and bet_time != '${next_date}'
+	` ;
+	
+		
+	}
+	
+	
+	
+	
+	
+	let query = db.query(sql, (err, result) => {
+				if(err) 
+				{
+					throw(err);
+				}
+			
+			   else { 
+			                   bet_money_total = result;
+			   
+							   let query2 = db.query(sql2, (err2, result2) => {
+								if(err2) 
+								{
+									throw(err2);
+								}
+							
+							   else { 
+							
+										win_money_total = result2;
+										//res.json(win_money_total);
+										//res.json(days_in_range);
+										//res.send(`${day_to - day_from}`);
+								
+								
+								res.json({"bet_money_total" : bet_money_total, "win_money_total" : win_money_total,
+								"days_in_range" : days_in_range , "day_names" : day_names});
+							   }
+							   
+							});
+			   
+			
+						// bet_money_total = result;
+						// res.json(bet_money_total);
+						//res.send(`${day_to - day_from}`);
+				
+				//res.json({ "today_collected_money" : today_collected_money, "today_profit" : today_profit, "yesterday_collected_money" : yesterday_collected_money , "yesterday_profit" : yesterday_profit });
+				
+			   }
+			   
+			});
+	
+	 
+})
+
+router.post('/ticketsbyday', (req, res) => {
+	let date_data = req.body;
+     
+	 let date_from = new Date(date_data.from_date);
+	 let date_to = new Date(date_data.to_date);
+	 let next_dt = new Date(date_data.to_date);
+	
+	let from_date = date_from.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	 next_dt.setDate(date_to.getDate() + 1);
+	let next_date = next_dt.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	
+	
+	let sql = `select * from tickets where  
+	bet_time between '${from_date}' and '${next_date}'
+	and bet_time != '${next_date}'
+	order by id desc
+	`;
+	
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            res.json({"checked":"3"});
+           //  throw(err);
+        }
+     else {
+		// res.json({"checked":"3"});
+		res.json(result);
+	 }
+		
+	});
+	
+})
+
+router.post('/ticketsbygameid', (req, res) => {
+	//let date_data = req.body;
+	let game_id = req.body.game_id * 1;
+    
+	
+	
+let sql = `select * from tickets where game_number = ${game_id}`;
+	
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            res.json({"checked":"3"});
+           //  throw(err);
+        }
+     else {
+		// res.json({"checked":"3"});
+		res.json(result);
+	 }
+		
+	});
+	
+})
+
+ 
+router.post('/statreportbydaycashier', (req, res) => {
+	 let date_data = req.body;
+     // let date_from = new Date('06/03/2022');
+	//  let date_to = new Date('06/06/2022');
+	//  let date_last = new Date('06/06/2022');
+	  //let next_dt = new Date('06/06/2022');
+	 let date_from = new Date(date_data.from_date);
+	 let date_to = new Date(date_data.to_date);
+	 let date_last = new Date(date_data.to_date);
+	
+	//date_from.setDate(date_from.getDate() + 0);  //I don't know why but I have add 1 day
+	//next_dt.setDate(next_dt.getDate() + 0);
+	//date_to.setDate(date_to.getDate() + 0);   //I don't know why but I have add 1 day
+	
+	var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+	
+	 let day_from = date_from.toISOString().replace('-', '/').split('T')[0].replace('-', '/').split("/")[2] ; //find only the day
+	 let day_to = date_to.toISOString().replace('-', '/').split('T')[0].replace('-', '/').split("/")[2] ;
+	
+	//  date_from.setDate(date_from.getDate() + 0);
+	 let from_date = date_from.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	 
+	  date_last.setDate(date_last.getDate() + 1);
+	  let last_date = date_last.toISOString().replace('-', '/').split('T')[0].replace('-', '/');
+	 
+     // let stat_array = [] ;
+	 let stat_date = [];
+	 let stat_day = [];
+	 let stat_cashier = [];
+	 let stat_total_collected = [];
+	 let stat_total_paid = [];
+	 
+	 let sql = `select * from tickets where  cancelled = 'no' 
+	 and bet_time between '${from_date}' and '${last_date}'
+	 and bet_time != '${last_date}'
+	 `;
+	 
+	 let query = db.query(sql, (err, result) => {
+				if(err) 
+				{
+					console.log(err);
+					throw(err);
+				}
+			
+			   else {
+				   if(result.length > 0){
+					   let item_dt = "";
+					   let item_date = "";
+					  
+					 result.map(item => {
+						 //console.log(item.bet_time);
+						 item_dt = new Date(item.bet_time.toString()).toISOString().split('T')[0];
+						 item_date = item_dt.split('-')[2]+"-"+item_dt.split('-')[1]+"-"+item_dt.split('-')[0];
+						 
+						 if(stat_date.includes(item_date) && stat_cashier.includes(item.cashier_name)){  //update
+						
+						 let ind = 0;
+							 for(var i = 0; i < stat_date.length; i++){
+								 if(stat_date[i] == item_date && stat_cashier[i] == item.cashier_name){
+									 ind = i;   //the wanted index is found
+									 break;
+								 }
+						}
+							stat_total_collected[ind] += item.bet_money;
+							if(item.paid == 'yes') {
+								stat_total_paid[ind] += item.win_money;
+							} else{
+								stat_total_paid[ind] += 0;
+							}
+							
+						 }
+						 else{   //add
+							stat_date.push(item_date);
+							stat_cashier.push(item.cashier_name);
+							
+							 stat_day.push(days[item.bet_time.getDay()]);
+							stat_total_collected.push(item.bet_money);
+							if(item.paid == 'yes') {
+								stat_total_paid.push(item.win_money);
+							} else {
+								stat_total_paid.push(0);
+							}
+							
+						}
+
+							
+						//console.log(item_date);
+						 
+					 });
+					 
+					// res.json({"stat_date" : stat_date});
+						res.json({ "stat_date" : stat_date, "stat_day" : stat_day, "stat_cashier" : stat_cashier , "stat_total_collected" : stat_total_collected, "stat_total_paid" : stat_total_paid });
+					   
+					//  console.log(from_date);
+				   }
+				   else {
+					   console.log("no data");
+				   }
+				   
+
+				   }
+			}
+	 );
+
+	 
+})
+router.post('/ticketcancel', (req, res) => {
+	let cancel_data = req.body;
+   
+	   
+	   let sql = `update tickets set cancelled = 'yes' where ticket_number = '${cancel_data.ticket_number}'`;
+	   let query = db.query(sql,  (err, result) => {
+        if(err) {
+            throw(err);
+             res.json({"registered" : "2"});
+        }
+        else{
+          //  console.log(result);
+            res.json({"registered" : "1"});
+        }
+        
+    });
+    
+     
+});
+
+router.post('/ticketpay', (req, res) => {
+	let pay_data = req.body;
+   
+	   
+	   let sql = `update tickets set paid = 'yes' where id = ${pay_data.ticket_id}`;
+	   let query = db.query(sql,  (err, result) => {
+        if(err) {
+            throw(err);
+             res.json({"registered" : "2"});
+        }
+        else{
+          //  console.log(result);
+		  let sql2 = `select * from tickets where ticket_number = '${pay_data.ticket_number}' and cancelled = 'no'`;
+   
+   
+					let query = db.query(sql2, (err2, result2) => {
+						if(err2) 
+						{throw(err2);
+						}
+					   
+					   else{ 
+					   res.json(result2);
+					
+					   }
+					});
+						  
+						   // res.json({"registered" : "1"});
+						}
+						
+					});
+    
+     
+});
+router.post('/changegamelevel', (req, res) => {
+	let new_level = req.body.newLevel;
+	let sql = `update game_levels set game_level = ${new_level} where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            throw(err);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			
+			//res.json({"changed" : "1"});
+				let sql2 = `select * from game_levels where id = 1`;
+					let query2 = db.query(sql2, (err2, result2) => {
+						 if(err2) {
+							throw(err2);
+							// res.json({"registered" : "2"});
+						}
+						else {
+							res.json(result2[0]);
+							
+						}
+						
+					});
+			
+		}
+		
+	});
+	
+});
+router.get('/getgamelevel', (req, res) => {
+	let sql = `select * from game_levels where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            throw(err);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			res.json(result[0]);
+			
+		}
+		
+	});
+	
+});
+router.post('/changeopenstatus', (req, res) => {
+	let new_level = req.body.newLevel;
+	let sql = `update game_levels set game_level = ${new_level} where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            throw(err);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			
+			//res.json({"changed" : "1"});
+				let sql2 = `select * from game_levels where id = 1`;
+					let query2 = db.query(sql2, (err2, result2) => {
+						 if(err2) {
+							throw(err2);
+							// res.json({"registered" : "2"});
+						}
+						else {
+							res.json(result2[0]);
+							
+						}
+						
+					});
+			
+		}
+		
+	});
+	
+});
+router.get('/getgamestatus', (req, res) => {
+	let sql = `select * from open_status where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            throw(err);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			res.json(result[0]);
+			
+		}
+		
+	});
+	
+});
+router.post('/changegamestatus', (req, res) => {
+	let to_status = req.body.toStatus;
+	let sql = `update open_status set status = '${to_status}' where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            throw(err);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			
+			//res.json({"changed" : "1"});
+				let sql2 = `select * from open_status where id = 1`;
+					let query2 = db.query(sql2, (err2, result2) => {
+						 if(err2) {
+							throw(err2);
+							// res.json({"registered" : "2"});
+						}
+						else {
+							res.json(result2[0]);
+							
+						}
+						
+					});
+			
+		}
+		
+	});
+	
+});
+
+router.get('/getonhandcash', (req, res) => {
+	let sql = `select * from on_hand_cash where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            throw(err);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			res.json(result[0]);
+			
+		}
+		
+	});
+	
+});
+router.post('/resetonhandcash', (req, res) => {
+	
+	let max_id = 0;
+	let sql3 = `select max(id) as max_id from tickets`;
+	let query3 = db.query(sql3, (err3, result3) => {
+		 if(err3) {
+            throw(err3);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			if(result3.length > 0){
+				max_id = result3[0].max_id;
+			}
+			let sql = `update on_hand_cash set amount_on_hand = 0 , since_id = ${max_id} where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		 if(err) {
+            throw(err);
+            // res.json({"registered" : "2"});
+        }
+        else {
+			
+			//res.json({"changed" : "1"});
+				let sql2 = `select * from on_hand_cash where id = 1`;
+					let query2 = db.query(sql2, (err2, result2) => {
+						 if(err2) {
+							throw(err2);
+							// res.json({"registered" : "2"});
+						}
+						else {
+							res.json(result2[0]);
+							
+						}
+						
+					});
+			
+		}
+		
+	});
+			
+		}
+	});
+	
+	
+});
+
+router.post('/updatewinnernumber', (req, res) => {
+	let winner_number = req.body.winner_number * 1;
+	let rand_rounded = req.body.random_number * 1;
+	let game_id = req.body.game_id * 1;
+	
+	let sql2 = `select * from game_winner where game_number = ${game_id}`;
+	let query2 = db.query(sql2, (err2, result2) => {
+		if(err2){
+			console.log("error selecting game_winner");
+			res.json({"winner_number" : winner_number, "random_number" : rand_rounded, "game_id": game_id});
+		}
+		else{
+			if(result2.length > 0){
+				if(result2[0].random_number == 0){
+					let sql = `update game_winner set winner_number = ${winner_number} , random_number = ${rand_rounded} where game_number =  ${game_id}`;
+						let query = db.query(sql, (err, result) => {
+							if(err) {
+								console.log("error updating game_winner");
+								res.json({"winner_number" : winner_number, "random_number" : rand_rounded, "game_id": game_id});
+							}
+							else {
+								let sql3 = `select * from game_winner where game_number = ${game_id}`;
+								   let query3 = db.query(sql3, (err3, result3) => {
+									   
+								   }); 
+								res.json({"winner_number" : winner_number, "random_number" : rand_rounded, "game_id": game_id});
+								
+							}
+
+						});
+				}
+				else{  //it is already entered by another browser
+					res.json({"winner_number" : result2[0].winner_number, "random_number" : result2[0].random_number, "game_id": game_id});
+				}
+				
+				
+			}else{
+				res.json({"winner_number" : winner_number, "random_number" : rand_rounded, "game_id": game_id});
+			}
+			
+		}
+	});
+	
+	
+   
+	
+	
+});
+
+module.exports = router;

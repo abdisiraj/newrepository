@@ -1,0 +1,1159 @@
+const express = require('express');
+const mysql = require('mysql');
+const path = require('path');
+const logger = require('./middleware/logger');
+let cors = require("cors");
+var fileupload = require("express-fileupload");
+const res = require('express/lib/response');
+
+const app = express();
+
+app.use(fileupload());
+
+app.use(cors());
+//initialize middleware logger
+//app.use(logger);  //not used only console log
+//gets all members
+//body parser middleware very crucial. without this there is no body parsing
+app.use(express.json()); //this is to accept data in json format
+app.use(express.urlencoded({ extended: false })); //this is to decode the data sent through html form
+
+
+// set a static folder . use is used when we want to use a middleware
+//(middlewares are functions which have access to req and res)
+app.use(express.static(path.join(__dirname, 'public')));  //not used
+
+
+//members api routes
+app.use('/api/members', require('./routes/api/members'));  //we call it like a middleware
+
+//members all tables routes
+//app.use('/all_tables/users', require('./routes/all_tables/users'));
+app.use('/all_tables/users', require('./routes/all_tables/users'));
+
+
+//create a connection
+// const db = mysql.createConnection({
+    // host: 'localhost',
+    // user: 'abdigoldencom_root',
+    // password: 'G3wC8jJ2gI0zF6n',
+    // database: 'abdigoldencom_db_golden'
+// });
+
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'spin_game_db'
+});
+
+//connect
+db.connect((err) => {
+    if(err) {
+        throw(err);
+    }
+    console.log('mysql connected');
+});
+
+
+
+var open_length = 300000;
+var closed_length = 40000;
+var open_status = "closed";
+var the_open_interval = 1000;
+var open_start_time = 300000;
+var closed_start_time = 40000;
+var the_closed_interval = 1000;
+
+const roundNumber = (numb) => {
+        var rounded = Math.round((numb + Number.EPSILON) * 100) / 100;
+        return rounded;
+      }
+
+
+
+      const spin_numbers2 = {
+        0: {index: 0, level: 0,  color: "green", sector: "none"},
+        1: {index: 1, level: 14, color: "red", sector: "D"},
+        2: {index: 2, level: 31, color: "black", sector: "A"},
+        3: {index: 3, level: 2,   color: "red", sector: "F" },
+        4: {index: 4, level: 33,  color: "black", sector: "A"},
+        5: {index: 5, level: 18, color: "red", sector: "D"},
+        6: {index: 6, level: 27, color: "black", sector: "B"},
+        7: {index: 7, level: 6, color: "red", sector: "F"},
+        8: {index: 8, level: 21, color: "black", sector: "C"},
+        9: {index: 9, level: 10, color: "red", sector: "E"},  
+        10: {index: 10, level: 19, color: "black", sector: "C"},
+        11: {index: 11, level: 23, color: "black", sector: "C"},
+        12: {index: 12, level: 4,  color: "red", sector: "F"},
+        13: {index: 13, level: 25, color: "black", sector: "B"},
+        14: {index: 14, level: 12, color: "red", sector: "E"},
+        15: {index: 15, level: 35, color: "black", sector: "A"},
+        16: {index: 16, level: 16, color: "red", sector: "D"},
+        17: {index: 17, level: 29, color: "black", sector: "B"},
+        18: {index: 18, level: 8, color: "red", sector: "E"},
+        19: {index: 19, level: 34, color: "red", sector: "A"},
+        20: {index: 20, level: 13, color: "black", sector: "D"},
+        21: {index: 21, level: 32, color: "red", sector: "A"},
+        22: {index: 22, level: 9, color: "black", sector: "E"},
+        23: {index: 23, level: 20, color: "red", sector: "C"},
+        24: {index: 24, level: 17,  color: "black", sector: "D"},
+        25: {index: 25, level: 30, color: "red", sector: "B"},
+        26: {index: 26, level: 1,  color: "black", sector: "F"},
+        27: {index: 27, level: 26, color: "red", sector: "B"},
+        28: {index: 28, level: 5, color: "black", sector: "F"},
+        29: {index: 29, level: 7,   color: "black" , sector: "E"},
+        30: {index: 30, level: 22,  color: "red", sector: "C"},
+        31: {index: 31, level: 11, color: "black", sector: "E"},
+        32: {index: 32, level: 36, color: "red", sector: "A"},
+        33: {index: 33, level: 15, color: "black", sector: "D"},
+        34: {index: 34, level: 28, color: "red", sector: "B"},
+        35: {index: 35, level: 3, color: "black", sector: "F"},
+        36: {index: 36, level: 24, color: "red", sector: "C"},
+         
+       
+      } 
+
+
+function check_win_status(bet_type, bet_value , winner_number) {
+	var winner_status = "loser";
+	//-----------------------for numbers----------------------------------------------
+	if(bet_type == "numbers"){
+		if(bet_value == winner_number){
+			winner_status = "winner";
+		}
+	}
+	//------------------------for high low------------------------------------------
+	if(bet_type == "high_low"){
+		if(winner_number != 0){
+			if(bet_value == "low" && winner_number <= 18){
+			winner_status = "winner";
+		}
+		}
+		if(bet_value == "high" && winner_number >= 19){
+			winner_status = "winner";
+		}
+	}
+	//-----------------------------for high low color-----------------------------------
+	if(bet_type == "high_low_color"){
+		
+		var win_color = spin_numbers2[winner_number].color;
+		if(winner_number != 0){
+			if(bet_value == "high & black"){
+			if(winner_number >= 19 && win_color == "black"){
+				winner_status = "winner";
+			}
+		}
+		if(bet_value == "high & red"){
+			if(winner_number >= 19 && win_color == "red"){
+				winner_status = "winner";
+			}
+		}
+		if(bet_value == "low & black"){
+			if(winner_number <= 18 && win_color == "black"){
+				winner_status = "winner";
+			}
+		}
+		if(bet_value == "low & red"){
+			if(winner_number <= 18 && win_color == "red"){
+				winner_status = "winner";
+			}
+		}
+		}
+		
+		
+	}
+	//--------------------------------for color---------------------------------------
+	if(bet_type == "colors"){
+		var win_color = spin_numbers2[winner_number].color;
+		if(bet_value == win_color){
+			winner_status = "winner";
+		}
+	}
+	//----------------------------------for even odd----------------------------------
+	if(bet_type == "even_odd"){
+		var remainder = winner_number % 2 ;
+		if(winner_number != 0){
+			if(remainder == 0 && bet_value == "even"){
+			winner_status = "winner";
+		}
+		}
+		
+		if(remainder != 0 && bet_value == "odd"){
+			winner_status = "winner";
+		}
+	}
+	//---------------------------------for twins---------------------------------------
+	if(bet_type == "twins"){
+	if(winner_number == 11 || winner_number == 22 || winner_number == 33){
+		
+		winner_status = "winner";
+	}
+	}
+	//-----------------------------------finals-------------------------------------------------
+	if(bet_type == "finals"){
+		var final_value = bet_value.split(" ")[1] * 1;
+		if(winner_number < 10){
+			if((winner_number + 10) % 10 == final_value){
+			winner_status = "winner";
+		}
+		}else{
+			if(winner_number % 10 == final_value){
+			winner_status = "winner";
+		}
+		}
+		
+	}
+	//------------------------------------sectors------------------------------------------------
+	if(bet_type == "sectors"){
+		if(winner_number != 0){
+			var win_sector = spin_numbers2[winner_number].sector;
+		var bet_sector = bet_value.split(" ")[1];
+		if(bet_sector == win_sector){
+			winner_status = "winner";
+		}
+		
+		}
+		
+	}
+	
+	//---------------------------------neighbors--------------------------------------------------
+	if(bet_type == "neighbors"){
+		var bet_level = spin_numbers2[bet_value.split(" ")[1]*1].level;
+		var win_level = spin_numbers2[winner_number].level;
+		
+		
+		if(bet_level == 0){
+				if(win_level == 36 || win_level == 35 || win_level == 0 || win_level == 1 || win_level == 2){
+					winner_status = "winner";
+				}
+			}
+			if(bet_level == 1){
+				if(win_level == 36 || win_level == 0 || win_level == 1 || win_level == 2 || win_level == 3  ){
+					winner_status = "winner";
+				}
+			}
+			if(bet_level == 36){
+				if(win_level == 36 || win_level == 0 || win_level == 1 || win_level == 35 || win_level == 34  ){
+					winner_status = "winner";
+				}
+			}
+			if(bet_level == 35){
+				if(win_level == 36 || win_level == 0 || win_level == 33 || win_level == 35 || win_level == 34  ){
+					winner_status = "winner";
+				}
+			}
+			
+			if(bet_level > 1 && bet_level < 35){
+				
+					if(win_level >= (bet_level - 2)	&& win_level <= (bet_level + 2)){
+						winner_status = "winner";
+					}	
+			
+			}
+			
+	}
+	
+	//---------------------------------donzens-------------------------------------------------------------------
+	if(bet_type == "donzens"){
+		if(winner_number != 0){
+			if(bet_value == "1st donzen" && winner_number <= 12){
+				winner_status = "winner";
+			}
+			if(bet_value == "2nd donzen" && winner_number <= 24 && winner_number > 12){
+				winner_status = "winner";
+			}
+			if(bet_value == "3rd donzen" && winner_number > 24 && winner_number <= 36){
+				winner_status = "winner";
+			}
+		}
+	}
+	//------------------------------mirrors------------------------------------------------------------------------
+	if(bet_type == "mirrors"){
+		
+			if(bet_value == "12/21" && (winner_number == 12 || winner_number == 21)){
+				winner_status = "winner";
+			}
+			if(bet_value == "13/31" && (winner_number == 13 || winner_number == 31)){
+				winner_status = "winner";
+			}
+			if(bet_value == "23/32" && (winner_number == 23 || winner_number == 32)){
+				winner_status = "winner";
+			}
+		
+	}
+	
+	return winner_status;
+}
+
+
+// function check_if_money(bet_type, bet_value, win_money ) {
+	// let arr_if_money = new Array();
+	// for(var i = 0; i < 37; i++){
+		// arr_if_money.push(0);
+	// }
+	
+	
+	// for(var j = 0; j < 37; j++){
+		
+		// //-----------------------for numbers----------------------------------------------
+	// if(bet_type == "numbers"){
+		// if(bet_value == j){
+			// // winner_status = "winner";
+			// arr_if_money[j] += win_money;
+		// }
+	// }
+	// //------------------------for high low------------------------------------------
+	// if(bet_type == "high_low"){
+		// if(j != 0){
+			// if(bet_value == "low" && j <= 18){
+			// // winner_status = "winner";
+			// arr_if_money[j] += win_money;
+		// }
+		
+		// if(bet_value == "high" && j >= 19){
+			// // winner_status = "winner";
+			// arr_if_money[j] += win_money;
+		// }
+		// }
+	// }
+	
+	// //-----------------------------for high low color-----------------------------------
+	// if(bet_type == "high_low_color"){
+		// var win_color = spin_numbers2[j].color;
+		// if(j != 0){
+			// if(bet_value == "high & black"){
+			// if(j >= 19 && win_color == "black"){
+				// // winner_status = "winner";
+				// arr_if_money[j] += win_money;
+			// }
+		// }
+		// if(bet_value == "high & red"){
+			// if(j >= 19 && win_color == "red"){
+				// //  winner_status = "winner";
+				// arr_if_money[j] += win_money;
+			// }
+		// }
+		
+		// if(bet_value == "low & black"){
+			// if(j <= 18 && win_color == "black"){
+				// // winner_status = "winner";
+				// arr_if_money[j] += win_money;
+			// }
+		// }
+		// if(bet_value == "low & red"){
+			// if(j <= 18 && win_color == "red"){
+				// // winner_status = "winner";
+				// arr_if_money[j] += win_money;
+			// }
+		// }
+		// }
+		
+		
+	// }
+	// //--------------------------------for color---------------------------------------
+	// if(bet_type == "colors"){
+		// var win_color = spin_numbers2[j].color;
+		// if(bet_value == win_color){
+			// // winner_status = "winner";
+			// arr_if_money[j] += win_money;
+		// }
+	// }
+	// //----------------------------------for even odd----------------------------------
+	// if(bet_type == "even_odd"){
+		// var remainder = j % 2 ;
+		// if(j != 0){
+			// if(remainder == 0 && bet_value == "even"){
+			// // winner_status = "winner";
+			// arr_if_money[j] += win_money;
+		// }
+		// }
+		
+		// if(remainder != 0 && bet_value == "odd"){
+			// // winner_status = "winner";
+			// arr_if_money[j] += win_money;
+		// }
+	// }
+	// //---------------------------------for twins---------------------------------------
+	// if(bet_type == "twins"){
+	// if(j == 11 || j == 22 || j == 33){
+		
+		// // winner_status = "winner";
+		// arr_if_money[j] += win_money;
+	// }
+	// }
+	// //-----------------------------------finals-------------------------------------------------
+	// if(bet_type == "finals"){
+		// var final_value = bet_value.split(" ")[1] * 1;
+			
+	// if(j < 10){
+			// if((j + 10) % 10 == final_value){
+			// arr_if_money[j] += win_money;
+		// }
+		// }else{
+			// if(j % 10 == final_value){
+			// arr_if_money[j] += win_money;
+		// }
+		// }
+	// }
+	// //------------------------------------sectors------------------------------------------------
+	// if(bet_type == "sectors"){
+		// if(j != 0){
+			// var win_sector = spin_numbers2[j].sector;
+		// var bet_sector = bet_value.split(" ")[1];
+		// if(bet_sector == win_sector){
+			// // winner_status = "winner";
+			// arr_if_money[j] += win_money;
+			
+		// }
+		// }
+		
+	// }
+	
+	// //---------------------------------neighbors--------------------------------------------------
+	// if(bet_type == "neighbors"){
+		// var bet_level = spin_numbers2[bet_value.split(" ")[1]*1].level;
+		// var win_level = spin_numbers2[j].level;
+		
+		
+		// if(bet_level == 0){
+				// if(win_level == 36 || win_level == 35 || win_level == 0 || win_level == 1 || win_level == 2){
+					// // winner_status = "winner";
+					// arr_if_money[j] += win_money;
+				// }
+			// }
+			// if(bet_level == 1){
+				// if(win_level == 36 || win_level == 0 || win_level == 1 || win_level == 2 || win_level == 3  ){
+				// // 	winner_status = "winner";
+				// arr_if_money[j] += win_money;
+				// }
+			// }
+			// if(bet_level == 36){
+				// if(win_level == 36 || win_level == 0 || win_level == 1 || win_level == 35 || win_level == 34  ){
+					// // winner_status = "winner";
+					// arr_if_money[j] += win_money;
+				// }
+			// }
+			// if(bet_level == 35){
+				// if(win_level == 36 || win_level == 0 || win_level == 33 || win_level == 35 || win_level == 34  ){
+					// // winner_status = "winner";
+					// arr_if_money[j] += win_money;
+				// }
+			// }
+			
+			// if(bet_level > 1 && bet_level < 35){
+				
+					// if(win_level >= (bet_level - 2)	&& win_level <= (bet_level + 2)){
+						// // winner_status = "winner";
+						// arr_if_money[j] += win_money;
+					// }	
+			
+			// }
+			
+	// }
+	
+	// //---------------------------------donzens-------------------------------------------------------------------
+	// if(bet_type == "donzens"){
+		// if(j != 0){
+			// if(bet_value == "1st donzen" && j <= 12){
+				// // winner_status = "winner";
+				// arr_if_money[j] += win_money;
+			// }
+			// if(bet_value == "2nd donzen" && j <= 24 && j > 12){
+				// // winner_status = "winner";
+				// arr_if_money[j] += win_money;
+			// }
+			// if(bet_value == "3rd donzen" && j > 24 && j <= 36){
+				// // winner_status = "winner";
+				// arr_if_money[j] += win_money;
+			// }
+		// }
+	// }
+	// //------------------------------mirrors------------------------------------------------------------------------
+	// if(bet_type == "mirrors"){
+		
+			// if(bet_value == "12/21" && (j == 12 || j == 21)){
+				// arr_if_money[j] += win_money;
+			// }
+			// if(bet_value == "13/31" && (j == 13 || j == 31)){
+				// arr_if_money[j] += win_money;
+			// }
+			// if(bet_value == "23/32" && (j == 23 || j == 32)){
+				// arr_if_money[j] += win_money;
+			// }
+		
+	// }
+	
+	// } //-------end of for loop----------------
+	
+	
+	// return arr_if_money;
+	
+	
+	
+// }
+
+ function getRandomInt(max) {
+   return Math.floor(Math.random() * max);
+ }
+
+// function total_win_for_each(game_id, game_level){
+	 
+	
+	// let arr_if_money = new Array();
+	// for(var i = 0; i < 37; i++){
+		// arr_if_money.push(0);
+	// }
+	
+	// let sql = `select * from tickets where game_number = ${game_id} `;
+    // let query = db.query(sql, (err, result) => {
+        // if(err) {
+			// throw(err);
+			// }
+      // else {
+		  // if(result.length > 0){
+			  // if(game_level != 0){
+				  // result.map(row => {
+				   // arr_if_each_row = check_if_money(row.bet_type, row.bet_value, row.win_money);
+				  // // console.log(arr_if_each_row);
+				   // for(var j = 0; j < 37; j++){
+					   // arr_if_money[j] += arr_if_each_row[j];
+				   // }
+			  
+			  // });
+			   // //-----------------now compare each money with level then insert into the table--------------------------------
+			   
+			 // //  console.log(arr_if_money);
+			   
+
+			   // let sql2 = `select sum(bet_money) as bet_money_total from tickets where game_number = ${game_id} `;
+			// let query2 = db.query(sql2, (err2, result2) => {
+					// if(err2) {
+						// throw(err2);
+					// }
+				// else {
+					// //console.log("hi");
+					// // if(result2.length > 0){
+								// // console.log("hello");
+					
+					 // //-----------------now compare each money with level then insert into the table--------------------------------
+					 // var biggest_money = 0;
+					 // var smallest_money = arr_if_money[0];
+					// var selected_number = 0;
+					// var total_bet_money = result2[0].bet_money_total;
+					// //console.log(total_bet_money);
+				  
+					// //console.log(arr_if_money);
+					
+					// var eligible_candidates = [];
+					
+					// arr_if_money.map((mon, p) => {
+						// //console.log(mon);
+						// if(mon > biggest_money && mon <= total_bet_money * (game_level/100)){
+							 // biggest_money = mon;
+						     // //selected_number = p;
+						// }
+					// });
+					
+					// //console.log(biggest_money);
+					
+					// arr_if_money.map((mon, p) => {
+						// //console.log(mon);
+						// if(mon == biggest_money){
+							// eligible_candidates.push(p);
+						// }
+					// });
+					
+					// if(eligible_candidates.length == 0){
+						// arr_if_money.map((mon, p) => {
+						// //console.log(mon);
+						// if(mon < smallest_money ){
+							 
+							 // smallest_money = mon;
+						     // //selected_number = p;
+						// }
+	
+					// });
+					// arr_if_money.map((mon, p) => {
+						// //console.log(mon);
+						// if(mon == smallest_money){
+							// eligible_candidates.push(p);
+						// }
+					// });
+					// }
+					
+					// //console.log(eligible_candidates);
+					
+					 // selected_number = eligible_candidates[getRandomInt(eligible_candidates.length)];
+					 // //console.log(selected_number);
+				  
+				     // // console.log(selected_number);
+					
+				 // //now insert the selected number into database
+				    // var min = 407;
+					// var max = 443;
+					
+					// var winner_level = spin_numbers2[selected_number].level;
+					// var rand_rounded = min + winner_level;  // 407 to 443
+					// var winner_number = selected_number;
+					 
+				    // //console.log(winner_level.toString() + rand_rounded.toString());
+					
+					// let sql3 = `update game_winner set winner_number = ${winner_number} , random_number = ${rand_rounded} where game_number =  ${game_id}`;
+							  // let query3 = db.query(sql3, (err3, result3) => {
+									// if(err3) {
+										// // res.json({"reset":"3"});
+										  
+										// console.log("error");
+										// throw(err3);
+									// }
+									// else {
+										// update_winner_status(game_id , winner_number);    //this updates win status of each ticket now that the winner num is found
+										// //closed_start_time = 40000;
+										// closed_start_time = closed_length;
+										// open_status = "closed";
+										// fourty_seconds();  //this will be called inside update win status in bets table
+										// //call the fourty timer
+									// }
+
+							   // });
+					
+				// //console.log(winner_number);
+		// //update_winner_number_random(game_id); 
+					// // update_winner_number_random(game_id); 
+					// // } else { //means there is no tickets table //unrealistic
+						
+					// // }
+					
+					
+				// }
+			// })
+			  // }
+			  // else{ //means free lottery
+						// const spin_numbers = {
+							// 0: {"index": 0}, 1: {"index": 26}, 2: {"index": 3 }, 3: {"index": 35}, 4: {"index": 12}, 5: {"index": 28},
+							// 6: {"index": 7}, 7: {"index": 29}, 8: {"index": 18}, 9: {"index": 22}, 10: {"index": 9}, 11: {"index": 31},
+							// 12: {"index": 14}, 13: {"index": 20}, 14: {"index": 1}, 15: {"index": 33}, 16: {"index": 16}, 17: {"index": 24},
+							// 18: {"index": 5}, 19: {"index": 10}, 20: {"index": 23}, 21: {"index": 8}, 22: {"index": 30}, 23: {"index": 11},
+							// 24: {"index": 36}, 25: {"index": 13}, 26: {"index": 27}, 27: {"index": 6}, 28: {"index": 34}, 29: {"index": 17},
+							// 30: {"index": 25}, 31: {"index": 2}, 32: {"index": 21}, 33: {"index": 4},34: {"index": 19},35: {"index": 15},
+							// 36: {"index": 32}
+						
+						  // } ;
+						  
+						  // var onePart = 360/37;
+							// var min = 407;
+							// var max = 443;
+							// var rand =  min + (Math.random() * (max-min));
+							// var rand_rounded = Math.round(rand);  // 407 to 443
+							// //var rand_rounded = 407;
+							// var winner_level = Math.round(((rand_rounded*onePart) - 3960)/onePart);
+							
+							// var winner_number = spin_numbers[winner_level].index;
+							
+							// let sql3 = `update game_winner set winner_number = ${winner_number} , random_number = ${rand_rounded} where game_number =  ${game_id}`;
+							  // let query3 = db.query(sql3, (err3, result3) => {
+									// if(err3) {
+										// // res.json({"reset":"3"});
+										  
+										// console.log("error");
+										// throw(err3);
+									// }
+									// else {
+										// update_winner_status(game_id , winner_number);    //this updates win status of each ticket now that the winner num is found
+										// //closed_start_time = 40000;
+										// closed_start_time = closed_length;
+										// open_status = "closed";
+										// fourty_seconds();  //this will be called inside update win status in bets table
+										// //call the fourty timer
+									// }
+
+							   // });
+				  
+			  // }
+			  
+			  
+			 
+		  // }
+		  
+		  // else {  //if no tickets are found just make it random
+		  
+			  // update_winner_number_random(game_id); 
+			  
+		  // }
+	// }
+// })
+			  
+	
+	
+	
+// }
+
+
+
+
+function update_winner_status(game_id , winner_number) {
+	 let sql = `select * from tickets where game_number = ${game_id} and win_status = 'pending'`;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+			throw(err);
+			}
+      else{
+		  if(result.length > 0){
+			  var winner_status = check_win_status(result[0].bet_type, result[0].bet_value, winner_number);
+			  let sql2 = `update tickets set win_status = '${winner_status}' where id =  ${result[0].id}`;
+			  let query2 = db.query(sql2, (err2, result2) => {
+        if(err2) {
+            // res.json({"reset":"3"});
+              
+            console.log("error");
+            throw(err2);
+        }
+        else {
+			update_winner_status(game_id, winner_number);
+		}
+
+   });
+		  }
+		
+	  
+	  }
+       
+    });
+
+
+}
+
+
+
+function insert_game_id_to_db(next_game_id , random_number) {
+	 
+	  
+	    let random_winner = getRandomInt(37);
+		if(random_number >= 0){
+		let sql2 = `insert into game_winner (game_number, random_number, winner_number) values (${next_game_id} , 0 , ${random_winner})` ;
+		let query2 = db.query(sql2,  (err2, result2) => {
+        if(err2) {
+            ////throw(err);
+            // res.json({"uploaded" : "2"});
+			console.log("error inserting");
+        }
+        else{
+           // console.log(result);
+           // res.json({"uploaded" : "1"});
+		   
+	         let gm_length = 300000;
+		          let sql10 = `select * from startup_settings where id = 1`;
+		         let query10 = db.query(sql10, (err10, result10) => {
+			   gm_length = result10[0].open_length;
+			    open_start_time = gm_length;
+			    let sql11 = `update startup_settings set open_status = 'open' , open_remaining = ${gm_length} where id = 1`;
+		        let query11 = db.query(sql11, (err11, result11) => {
+						five_minutes();
+		         });
+		   });
+        }
+        
+    });	
+		}
+		else{
+		//open_status = "open";
+		   //open_start_time = 30000;
+		  // open_start_time = open_length;
+		   
+		   
+		   //then call the interval five minutes
+		   
+		   // first find the open start time(game length) ---------------------------------from open_length
+		   let gm_length = 300000;
+		   let sql10 = `select * from startup_settings where id = 1`;
+		   let query10 = db.query(sql10, (err10, result10) => {
+			   gm_length = result10[0].open_length;
+			    open_start_time = gm_length;
+			    let sql11 = `update startup_settings set open_status = 'open' , open_remaining = ${gm_length} where id = 1`;
+		        let query11 = db.query(sql11, (err11, result11) => {
+						five_minutes();
+		         });
+		   });
+		   
+		  
+		}
+		
+}
+//var minutes = 0.1, the_interval = minutes * 60 * 1000;
+
+
+
+function find_next_game_id() {
+	var db_open_status = "closed";
+	var next_game_id = 0;
+	var game_id = 0;
+	var winner_number = 0;
+	var random_number = 0;
+	let sql2 = `select * from open_status `;
+	let query2 = db.query(sql2, (err2, result2) => {
+		 if(err2) {
+            //res.json({"checked":"3"});
+			throw(err2);
+        }
+		
+    else {
+		db_open_status = result2[0].status;
+		let sql3 = `select * from on_hand_cash `;
+		let query3 = db.query(sql3, (err3, result3) => {
+			 if(err2) {
+            //res.json({"checked":"3"});
+			throw(err2);
+				}
+		
+				else {
+				  	if(result3[0].amount_on_hand <= 20000 && db_open_status == "open"){
+						
+								let sql_max_id = `SELECT * FROM game_winner ORDER BY id DESC LIMIT 1`;
+									 let query = db.query(sql_max_id, (err, result) => {
+										if(err) {
+											//res.json({"checked":"3"});
+										   
+											console.log("error in max id");
+										}
+										
+									else {
+										
+										if(result.length > 0){
+										  result.map((game) => {
+											
+											  next_game_id = game.game_number + 1;
+											  game_id = game.game_number;
+											  winner_number = game.winner_number;
+											  random_number = game.random_number;
+										
+										  });
+											
+								   
+											}else{
+											next_game_id = 1;
+											game_id = 0;
+											winner_number = 0;
+											random_number = 1; //just to make it non zero
+											}
+											
+											 // this stalls the zeros at the end
+												//insert_rand_to_db(next_game_id);
+											  insert_game_id_to_db(next_game_id, random_number);
+											//------------------------------------do the ticket win status updating here--------------------------------------
+											 if(random_number != 0){
+											  update_winner_status(game_id, winner_number);
+											 }	  
+											  //---------------------------------end of do the ticket win status updating here------------------------------------
+											
+											
+									
+									   //  open_start_time -= 1000;  
+										   //---------------------------------------------end of write open status to database---------------------------------------------------------------------	
+									}
+									  
+								});
+														
+														
+					}
+					else {  //go to another timer
+						
+						check_open_status();
+						
+					}
+													
+					
+				}
+			
+			
+		});
+		
+	}
+	
+	});
+	
+	
+	
+}
+
+function check_open_status(){
+	var open_status_interval = setInterval(function() { 
+	
+	var db_open_status = "closed";
+	let sql2 = `select * from open_status `;
+	let query2 = db.query(sql2, (err2, result2) => {
+		 if(err2) {
+            //res.json({"checked":"3"});
+			throw(err2);
+        }
+		
+    else {
+		db_open_status = result2[0].status;
+		let sql3 = `select * from on_hand_cash `;
+		let query3 = db.query(sql3, (err3, result3) => {
+			 if(err2) {
+            //res.json({"checked":"3"});
+			throw(err2);
+				}
+		
+				else {
+	if(result3[0].amount_on_hand <= 20000 && db_open_status == "open"){
+		
+		
+		closed_start_time = 40000;
+		fourty_seconds();
+		clearInterval(open_status_interval);
+	 }else{
+		// do nothing
+	  }
+	 }
+	 })
+	 }
+	 });
+	
+
+	}, 2000);
+}
+
+function update_winner_number(game_id) {
+	
+	//get the level first then call total_win_for_each
+	let sql = `select * from game_levels where id = 1 `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+			throw(err);
+			}
+      else {
+		  if(result.length > 0){
+			 
+				game_level = result[0].game_level;
+			  
+			 
+			  
+			  //-----------------now compare each money with level then insert into the table--------------------------------
+			  
+			  
+				  total_win_for_each(game_id, game_level);  //this also inserts to db
+				    
+		  }
+		  
+	  }
+       
+    });
+	
+}
+
+function update_winner_number_random(game_id) {
+	
+	const spin_numbers = {
+        0: {"index": 0}, 1: {"index": 26}, 2: {"index": 3 }, 3: {"index": 35}, 4: {"index": 12}, 5: {"index": 28},
+        6: {"index": 7}, 7: {"index": 29}, 8: {"index": 18}, 9: {"index": 22}, 10: {"index": 9}, 11: {"index": 31},
+        12: {"index": 14}, 13: {"index": 20}, 14: {"index": 1}, 15: {"index": 33}, 16: {"index": 16}, 17: {"index": 24},
+        18: {"index": 5}, 19: {"index": 10}, 20: {"index": 23}, 21: {"index": 8}, 22: {"index": 30}, 23: {"index": 11},
+        24: {"index": 36}, 25: {"index": 13}, 26: {"index": 27}, 27: {"index": 6}, 28: {"index": 34}, 29: {"index": 17},
+        30: {"index": 25}, 31: {"index": 2}, 32: {"index": 21}, 33: {"index": 4},34: {"index": 19},35: {"index": 15},
+        36: {"index": 32}
+    
+      } ;
+	  
+	  var onePart = 360/37;
+	    var min = 407;
+        var max = 443;
+        var rand =  min + (Math.random() * (max-min));
+		var rand_rounded = Math.round(rand);  // 407 to 443
+		//var rand_rounded = 407;
+		var winner_level = Math.round(((rand_rounded*onePart) - 3960)/onePart);
+		
+		var winner_number = spin_numbers[winner_level].index;
+	
+	let sql = `update game_winner set winner_number = ${winner_number} , random_number = ${rand_rounded} where game_number =  ${game_id}`;
+  let query = db.query(sql, (err, result) => {
+        if(err) {
+            // res.json({"reset":"3"});
+              
+            console.log("error");
+            throw(err);
+        }
+        else {
+			update_winner_status(game_id , winner_number);
+			//closed_start_time = 40000; 
+			closed_start_time = closed_length;
+			open_status = "closed";
+			fourty_seconds();  //this will be called inside update win status in bets table
+			//call the fourty timer
+		}
+
+   });
+	
+}
+
+
+
+
+function five_minutes() {
+	var five_minutes_interval = setInterval(function() { 
+	
+	if(open_start_time <= 0){
+		 
+		 //update_winner_number(game_id);
+		 //closed_start_time = 40000;
+		 //-----------------------------------change the open status in the db-------------------------------------------
+		 let sql = `update startup_settings set open_status = 'closed' , open_remaining = 0 , closed_remaining = 40000 where id = 1`;
+		 let query = db.query(sql, (err, result) => {
+			closed_start_time = 40000;
+			fourty_seconds();
+		    clearInterval(five_minutes_interval);
+				});
+		 
+		 //open_status = "closed";
+		 
+		
+	}
+	
+     open_start_time -= 1000;
+	 if(open_start_time >= 0){
+		 let sql2 = `update startup_settings set open_remaining = ${open_start_time} where id = 1`;
+		 let query2 = db.query(sql2, (err2, result2) => {
+			 
+		 });
+	 }
+	 
+	}, the_open_interval);
+}
+function fourty_seconds() {
+	var fourty_seconds_interval = setInterval(function() { 
+	
+	if(closed_start_time <= 0){
+		
+		find_next_game_id();
+		clearInterval(fourty_seconds_interval);
+		 //update_winner_number(game_id);
+		//call update winner number
+	}
+     closed_start_time -= 1000;
+	 if(closed_start_time >= 0){
+		 let sql2 = `update startup_settings set closed_remaining = ${closed_start_time} where id = 1`;
+		 let query2 = db.query(sql2, (err2, result2) => {
+			 
+		 });
+	 }
+	}, the_closed_interval);
+}
+
+//five_minutes();
+//find_next_game_id();
+
+//fourty_seconds();
+startup_func();
+function startup_func(){
+	// let open_status = "closed";
+	// let closed_length = 40000;
+	// let open_length = 300000;
+	// let open_remaining = 300000;
+	// let closed_remaining = 40000;
+	let game_id = 0;
+	let sql = `select * from startup_settings where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		open_status = result[0].open_status;
+		//open_length = result[0].open_length;
+		//closed_length = result[0].closed_length;
+		open_start_time = result[0].open_remaining;
+		closed_start_time = result[0].closed_remaining;
+		
+		if(open_status == "open" ){
+
+		        five_minutes();
+		}
+		else { // means it is closed
+			fourty_seconds();
+		}
+			
+	});
+}
+
+
+
+app.get('/getopenstatus/', (req, res) => {
+	var current_game_id = 1;
+	
+	//var open_status = "closed";
+	var time_remaining = 40000;
+    
+  
+		//------------------------------------------------------------get the random stuff-----------------------------------------------------------------
+	    let sql = ` SELECT * FROM game_winner ORDER BY ID DESC LIMIT 1 `;
+    let query = db.query(sql, (err, result) => {
+        if(err) {
+           //res.json({"checked":"3"});
+           //  throw(err);
+        }
+     
+  
+      if(result.length > 0){
+          result.map((game) => {
+              current_game_id = game.game_number;
+			
+
+          });
+		  
+		  //----------------------------find time remaining from the database---------------------------------------------------------------------
+		  let sql2 = `select * from startup_settings where id = 1`;
+	      let query2 = db.query(sql2, (err2, result2) => {
+		
+		      if(result2[0].open_status == 'open'){
+				  time_remaining = result2[0].open_remaining;
+			  }	
+			  else{
+				  time_remaining = result2[0].closed_remaining;
+			  }
+			  
+			  res.json({ "current_game_id" : current_game_id, 
+		     "open_status" : result2[0].open_status , 
+		     "time_remaining" : time_remaining });
+			  
+	      });
+		  
+		  //-----------------------------end of finding time remaining from the database-------------------------------------------------------------
+		  // if(open_status == "open"){
+			  // time_remaining = open_start_time;
+		  // }
+		  // else{
+			  // time_remaining = closed_start_time;
+		  // }
+		  // res.json({ "current_game_id" : current_game_id, 
+		   // "open_status" : open_status , 
+		  // "time_remaining" : time_remaining });
+       
+    } else {
+       // res.json({"checked":"3"});
+    }
+    });
+	//------------------------------------------------------------end of get the random stuff-----------------------------------------------------------------	
+	
+	
+	
+});
+
+
+app.post('/changegamelength/', (req, res) => {
+	var new_length = req.body.newLength ;
+	//open_length = new_length;
+	
+	let sql2 = `update startup_settings set open_length = ${new_length} where id = 1`;
+		 let query2 = db.query(sql2, (err2, result2) => {
+			 res.json({"game_length" : open_length});
+		 });
+	
+});
+app.get('/getgamelength/', (req, res) => {
+	//res.json({"game_length" : open_length});
+	let sql = `select * from startup_settings where id = 1`;
+	let query = db.query(sql, (err, result) => {
+		
+		res.json({"game_length" : result[0].open_length});	
+	});
+	
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`server run on ${PORT}`));
